@@ -1,0 +1,148 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;font-family:Cairo,Inter,sans-serif;color:#1B2B3A;background:transparent">
+<style>
+*{box-sizing:border-box}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.grp{display:flex;gap:6px;align-items:center;padding:6px 8px;background:#FFFFFF;border:1px solid #DBE6F3;border-radius:16px;box-shadow:0 4px 12px -8px rgba(30,111,217,.5)}
+.sw{width:26px;height:26px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #DCE7F3;cursor:pointer;padding:0;transition:transform .12s}
+.sw:hover{transform:scale(1.15)}
+.sw.on{box-shadow:0 0 0 3px #1557B0}
+.ib{width:40px;height:40px;border:0;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;padding:0;box-shadow:0 3px 8px rgba(30,111,217,.3);transition:transform .12s,box-shadow .12s}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.ib:hover{transform:translateY(-2px)}
+.ib.on{transform:translateY(-2px);box-shadow:0 0 0 3px #FFFFFF,0 0 0 6px #1E6FD9,0 6px 12px rgba(30,111,217,.35)}
+.ib.sm{width:30px;height:30px;border-radius:9px}
+.ib.sm svg{width:16px;height:16px}
+.ib.go{width:auto;height:44px;padding:0 20px;background:linear-gradient(135deg,#F5A623,#1E6FD9) !important}
+.ib.go svg{width:24px;height:24px}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.14)}100%{transform:scale(1)}}
+.ib.sent{animation:pop .35s}
+#sz{width:50px;border:1px solid #DCE7F3;border-radius:8px;padding:5px 4px;font-weight:700;text-align:center;background:#fff;color:#1B2B3A}
+#col{width:34px;height:32px;border:0;background:none;padding:0;cursor:pointer}
+canvas{display:block;width:100%;max-width:640px;border:3px solid #F5A623;border-radius:14px;background:#fff;touch-action:none;cursor:crosshair;box-shadow:0 10px 24px -14px rgba(30,111,217,.55)}
+</style>
+<div class="row"><div class="grp" id="pal"><input type="color" id="col" value="#1B2B3A" title="لون آخر · More colors"></div></div>
+<div class="row" id="tb"></div>
+<canvas id="cv" width="640" height="420"></canvas>
+<script>
+const $=i=>document.getElementById(i);
+const send=(type,extra)=>window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:type},extra),"*");
+const fit=()=>send("streamlit:setFrameHeight",{height:document.documentElement.scrollHeight+6});
+send("streamlit:componentReady",{apiVersion:1});
+
+const IC={
+ pen:'<path d="M3 21l3.5-.8L19 7.7a2.1 2.1 0 0 0 0-3l-.7-.7a2.1 2.1 0 0 0-3 0L2.8 16.5 3 21z"/><path d="M13.5 6.5l4 4"/>',
+ fill:'<path d="M19 11l-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11z"/><path d="M5 2l5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4z"/>',
+ er:'<path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="M5 11l9 9"/>',
+ line:'<path d="M5 19L19 5"/>',
+ rect:'<rect x="3.5" y="6" width="17" height="12" rx="1"/>',
+ circle:'<circle cx="12" cy="12" r="8.5"/>',
+ tri:'<path d="M12 4L21 19H3z"/>',
+ dia:'<path d="M12 3l9 9-9 9-9-9z"/>',
+ star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+ hex:'<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/>',
+ arch:'<path d="M5 21V11a7 7 0 0 1 14 0v10z"/>',
+ outline:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
+ solid:'<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>',
+ minus:'<path d="M5 12h14"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+ trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>',
+ go:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'
+};
+const C=["#1B2B3A","#1B2B3A","#1E6FD9","#E2475B","#F5A623","#FFC94D","#F5A623","#2E9E5B","#12A39A","#3B82C4","#E2475B","#D1479A","#FFFFFF"];
+
+const cv=$("cv"),x=cv.getContext("2d"),col=$("col"),pal=$("pal"),tb=$("tb");
+x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.lineCap="round";x.lineJoin="round";
+let tool="pen",d=false,hist=[],solid=false,start=null,base=null;
+
+const svg=n=>'<svg viewBox="0 0 24 24">'+IC[n]+'</svg>';
+const btn={};
+function add(g,id,title,color,cls){
+ const b=document.createElement("button");
+ b.type="button";b.id="b_"+id;b.className="ib "+(cls||"");b.title=title;b.setAttribute("aria-label",title);
+ b.style.background=color;b.innerHTML=svg(id);g.appendChild(b);btn[id]=b;return b;
+}
+function grp(){const g=document.createElement("div");g.className="grp";tb.appendChild(g);return g}
+
+/* colour swatches */
+C.forEach((c,i)=>{
+ const b=document.createElement("button");b.type="button";b.className="sw"+(i==0?" on":"");b.style.background=c;b.title=c;
+ b.onclick=()=>{col.value=c.toLowerCase();mark(b);if(tool=="er")setT("pen")};
+ pal.insertBefore(b,col);
+});
+col.oninput=()=>{mark(null);if(tool=="er")setT("pen")};
+function mark(b){document.querySelectorAll(".sw").forEach(e=>e.classList.remove("on"));if(b)b.classList.add("on")}
+
+/* groups: tools | shapes | size | actions */
+const gT=grp(),gS=grp(),gZ=grp(),gA=grp();
+const TOOLS=[["pen","قلم · Pen","#1E6FD9"],["fill","تعبئة بالدلو · Fill","#F5A623"],["er","ممحاة · Eraser","#12A39A"]];
+const SHAPES=[["line","خط · Line","#E2475B"],["rect","مستطيل · Rectangle","#3B82C4"],["circle","دائرة · Circle","#2E9E5B"],["tri","مثلث · Triangle","#E2475B"],
+ ["dia","معين · Diamond","#E2475B"],["star","نجمة · Star","#F5A623"],["hex","سداسي · Hexagon","#12A39A"],["arch","قوس · Arch","#7A5AF0"]];
+const PICK=[];
+TOOLS.forEach(t=>{add(gT,t[0],t[1],t[2]).onclick=()=>setT(t[0]);PICK.push(t[0])});
+SHAPES.forEach(t=>{add(gS,t[0],t[1],t[2]).onclick=()=>setT(t[0]);PICK.push(t[0])});
+const bs=add(gS,"outline","شكل مفرغ · Outline","#1557B0");
+bs.onclick=()=>{solid=!solid;bs.innerHTML=svg(solid?"solid":"outline");bs.title=solid?"شكل ممتلئ · Filled":"شكل مفرغ · Outline";bs.setAttribute("aria-label",bs.title)};
+add(gZ,"minus","أصغر · Smaller","#6B7A8C","sm").onclick=()=>{sz.value=Math.max(2,(+sz.value||8)-2)};
+const sz=document.createElement("input");sz.type="number";sz.id="sz";sz.min=2;sz.max=40;sz.value=8;sz.title="حجم الخط · Size";gZ.appendChild(sz);
+add(gZ,"plus","أكبر · Larger","#6B7A8C","sm").onclick=()=>{sz.value=Math.min(40,(+sz.value||8)+2)};
+const bu=add(gA,"undo","تراجع · Undo","#6B7A8C");
+const bc=add(gA,"trash","مسح الكل · Clear","#E2475B");
+const use=add(gA,"go","ابحث بالرسمة · Use drawing","#1E6FD9","go");
+
+function setT(t){
+ tool=t;PICK.forEach(k=>btn[k].classList.toggle("on",k==t));
+ cv.style.cursor=t=="fill"?"cell":"crosshair";
+}
+setT("pen");
+
+/* geometric shapes: drag from one corner to the opposite one */
+const SH={
+ line:(a,b)=>{x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1])},
+ rect:(a,b)=>{x.beginPath();x.rect(a[0],a[1],b[0]-a[0],b[1]-a[1])},
+ circle:(a,b)=>{x.beginPath();x.ellipse((a[0]+b[0])/2,(a[1]+b[1])/2,Math.abs(b[0]-a[0])/2,Math.abs(b[1]-a[1])/2,0,0,2*Math.PI)},
+ tri:(a,b)=>{x.beginPath();x.moveTo((a[0]+b[0])/2,a[1]);x.lineTo(b[0],b[1]);x.lineTo(a[0],b[1]);x.closePath()},
+ dia:(a,b)=>{const cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2;x.beginPath();x.moveTo(cx,a[1]);x.lineTo(b[0],cy);x.lineTo(cx,b[1]);x.lineTo(a[0],cy);x.closePath()},
+ star:(a,b)=>{const cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2,rx=Math.abs(b[0]-a[0])/2,ry=Math.abs(b[1]-a[1])/2;x.beginPath();
+  for(let i=0;i<10;i++){const r=i%2?0.42:1,t=-Math.PI/2+i*Math.PI/5,px=cx+Math.cos(t)*rx*r,py=cy+Math.sin(t)*ry*r;if(i)x.lineTo(px,py);else x.moveTo(px,py)}x.closePath()},
+ hex:(a,b)=>{const cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2,rx=Math.abs(b[0]-a[0])/2,ry=Math.abs(b[1]-a[1])/2;x.beginPath();
+  for(let i=0;i<6;i++){const t=-Math.PI/2+i*Math.PI/3,px=cx+Math.cos(t)*rx,py=cy+Math.sin(t)*ry;if(i)x.lineTo(px,py);else x.moveTo(px,py)}x.closePath()},
+ arch:(a,b)=>{const l=Math.min(a[0],b[0]),r=Math.max(a[0],b[0]),t=Math.min(a[1],b[1]),bt=Math.max(a[1],b[1]),rad=(r-l)/2,cy=Math.min(t+rad,bt);
+  x.beginPath();x.moveTo(l,bt);x.lineTo(l,cy);x.arc(l+rad,cy,rad,Math.PI,0);x.lineTo(r,bt);x.closePath()}
+};
+function shape(n,a,b){
+ x.save();x.lineWidth=+sz.value||8;x.strokeStyle=col.value;x.fillStyle=col.value;
+ SH[n](a,b);if(solid&&n!="line")x.fill();x.stroke();x.restore();
+}
+
+/* canvas helpers */
+const save=()=>{hist.push(x.getImageData(0,0,cv.width,cv.height));if(hist.length>30)hist.shift()};
+const p=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]};
+function hex(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+function flood(px,py,c){const W=cv.width,H=cv.height,im=x.getImageData(0,0,W,H),a=im.data,i0=(py*W+px)*4,t0=a[i0],t1=a[i0+1],t2=a[i0+2];
+ if(Math.abs(t0-c[0])+Math.abs(t1-c[1])+Math.abs(t2-c[2])<10)return;
+ const seen=new Uint8Array(W*H),st=new Int32Array(W*H*8+8);let sp=0;st[sp++]=px;st[sp++]=py;
+ while(sp>0){const r=st[--sp],q=st[--sp];if(q<0||r<0||q>=W||r>=H)continue;const k=r*W+q;if(seen[k])continue;seen[k]=1;const i=k*4;
+  if(Math.abs(a[i]-t0)+Math.abs(a[i+1]-t1)+Math.abs(a[i+2]-t2)>=90)continue;
+  a[i]=c[0];a[i+1]=c[1];a[i+2]=c[2];a[i+3]=255;
+  st[sp++]=q+1;st[sp++]=r;st[sp++]=q-1;st[sp++]=r;st[sp++]=q;st[sp++]=r+1;st[sp++]=q;st[sp++]=r-1}
+ x.putImageData(im,0,0)}
+
+cv.onpointerdown=e=>{save();const q=p(e);
+ if(tool=="fill"){flood(q[0]|0,q[1]|0,hex(col.value));return}
+ d=true;cv.setPointerCapture(e.pointerId);
+ if(SH[tool]){start=q;base=x.getImageData(0,0,cv.width,cv.height);return}
+ x.beginPath();x.moveTo(q[0],q[1]);x.strokeStyle=tool=="er"?"#ffffff":col.value;x.lineWidth=tool=="er"?sz.value*2:sz.value;x.lineTo(q[0]+.1,q[1]+.1);x.stroke()};
+cv.onpointermove=e=>{if(!d)return;const q=p(e);
+ if(SH[tool]){x.putImageData(base,0,0);shape(tool,start,q);return}
+ x.lineTo(q[0],q[1]);x.stroke()};
+cv.onpointerup=cv.onpointercancel=()=>{d=false;start=null;base=null};
+
+bu.onclick=()=>{if(hist.length)x.putImageData(hist.pop(),0,0)};
+bc.onclick=()=>{save();x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height)};
+use.onclick=()=>{send("streamlit:setComponentValue",{value:cv.toDataURL("image/png"),dataType:"json"});use.classList.add("sent");setTimeout(()=>use.classList.remove("sent"),400)};
+
+fit();
+if(window.ResizeObserver)new ResizeObserver(fit).observe(document.body);
+</script></body></html>
